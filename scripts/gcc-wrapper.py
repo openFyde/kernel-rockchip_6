@@ -1,4 +1,4 @@
-#! /usr/bin/env python3
+#! /usr/bin/env python
 # -*- coding: utf-8 -*-
 
 # Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
@@ -102,7 +102,7 @@ def run_gcc():
         proc = subprocess.Popen(args, stderr=subprocess.PIPE, env=env)
         for line in proc.stderr:
             print (line.decode("utf-8"), end="")
-            #interpret_warning(line.decode("utf-8"))
+            interpret_warning(line.decode("utf-8"))
         if do_exit:
             sys.exit(1)
 

@@ -85,35 +85,6 @@ static const struct of_device_id rk_spdif_match[] __maybe_unused = {
 };
 MODULE_DEVICE_TABLE(of, rk_spdif_match);
 
-static const struct snd_pcm_hardware rk_spdif_hardware = {
-	.info = (SNDRV_PCM_INFO_INTERLEAVED |
-		 SNDRV_PCM_INFO_MMAP |
-		 SNDRV_PCM_INFO_MMAP_VALID |
-		 SNDRV_PCM_INFO_BLOCK_TRANSFER),
-	.rates = SNDRV_PCM_RATE_8000_192000,
-	.formats = (SNDRV_PCM_FMTBIT_S16_LE |
-		    SNDRV_PCM_FMTBIT_S20_3LE |
-		    SNDRV_PCM_FMTBIT_S24_LE |
-		    SNDRV_PCM_FMTBIT_S32_LE),
-	.channels_min = 2,
-	.channels_max = 2,
-
-#define PERIOD_BYTES_MIN	(256)
-#define BUFFER_BYTES_MAX	(UINT_MAX)
-	.buffer_bytes_max = BUFFER_BYTES_MAX,
-	.period_bytes_min = PERIOD_BYTES_MIN,
-	.period_bytes_max = 32768,
-	.periods_min = 2,
-	.periods_max = BUFFER_BYTES_MAX / PERIOD_BYTES_MIN,
-	.fifo_size = 16,
-};
-
-static const struct snd_dmaengine_pcm_config rk_spdif_dmaengine_pcm_config = {
-	.pcm_hardware = &rk_spdif_hardware,
-	.prepare_slave_config = snd_dmaengine_pcm_prepare_slave_config,
-	.prealloc_buffer_size = 128 * 1024,
-};
-
 static int __maybe_unused rk_spdif_runtime_suspend(struct device *dev)
 {
 	struct rk_spdif_dev *spdif = dev_get_drvdata(dev);
@@ -416,7 +387,7 @@ static int rk_spdif_probe(struct platform_device *pdev)
 
 	spdif->playback_dma_data.addr = res->start + SPDIF_SMPDR;
 	spdif->playback_dma_data.addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
-	spdif->playback_dma_data.maxburst = 8;
+	spdif->playback_dma_data.maxburst = 4;
 
 	spdif->dev = &pdev->dev;
 	dev_set_drvdata(&pdev->dev, spdif);
@@ -436,8 +407,7 @@ static int rk_spdif_probe(struct platform_device *pdev)
 		goto err_pm_suspend;
 	}
 
-	ret = devm_snd_dmaengine_pcm_register(&pdev->dev,
-					      &rk_spdif_dmaengine_pcm_config, 0);
+	ret = devm_snd_dmaengine_pcm_register(&pdev->dev, NULL, 0);
 	if (ret) {
 		dev_err(&pdev->dev, "Could not register PCM\n");
 		goto err_pm_suspend;

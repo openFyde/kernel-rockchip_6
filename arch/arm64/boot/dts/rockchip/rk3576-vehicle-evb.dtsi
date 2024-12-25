@@ -131,14 +131,12 @@
 		simple-audio-card,name = "rockchip,car-rk3308-sound";
 		simple-audio-card,format = "i2s";
 		simple-audio-card,mclk-fs = <256>;
-		simple-audio-card,bitclock-master = <&codec_master>;
-		simple-audio-card,frame-master = <&codec_master>;
 		simple-audio-card,cpu {
 			sound-dai = <&sai1>;
 			dai-tdm-slot-num = <8>;
 			dai-tdm-slot-width = <32>;
 		};
-		codec_master: simple-audio-card,codec {
+		simple-audio-card,codec {
 			sound-dai = <&dummy_codec>;
 		};
 	};
@@ -390,12 +388,9 @@
 		     &sai1m0_sclk
 		     &sai1m0_sdi0
 		     &sai1m0_sdi1
-		     &sai1m0_sdi2
-		     &sai1m0_sdi3
 		     &sai1m0_sdo0
 		     &sai1m0_sdo1
-		     &sai1m0_sdo2
-		     &sai1m0_sdo3>;
+		     &sai1m0_sdo2>;
 };
 
 &sdmmc {

@@ -567,8 +567,8 @@ static unsigned int hdmi_find_n(struct dw_hdmi_qp *hdmi, unsigned long pixel_clk
 	if (n > 0)
 		return n;
 
-	dev_dbg(hdmi->dev, "Rate %lu missing; compute N dynamically\n",
-		pixel_clk);
+	dev_warn(hdmi->dev, "Rate %lu missing; compute N dynamically\n",
+		 pixel_clk);
 
 	return hdmi_compute_n(hdmi, pixel_clk, sample_rate);
 }
@@ -1001,14 +1001,8 @@ static const struct hdmi_quirk *get_hdmi_quirk(u8 *vendor_id)
 
 static void dw_hdmi_i2c_init(struct dw_hdmi_qp *hdmi)
 {
-	u32 ddc_i2c_rxfilter;
-
 	/* Software reset */
 	hdmi_writel(hdmi, 0x01, I2CM_CONTROL0);
-
-	/* Configure I2CM hold time and rxfilter */
-	if (device_property_read_u32(hdmi->dev, "ddc-i2c-rxfilter", &ddc_i2c_rxfilter) == 0)
-		hdmi_writel(hdmi, ddc_i2c_rxfilter, I2CM_CONFIG0);
 
 	hdmi_modb(hdmi, 0, I2CM_FM_EN, I2CM_INTERFACE_CONTROL0);
 
@@ -3398,15 +3392,7 @@ void dw_hdmi_qp_cec_set_hpd(struct dw_hdmi_qp *hdmi, bool plug_in, bool change)
 	if (!plug_in)
 		cec_notifier_set_phys_addr(hdmi->cec_notifier,
 					   CEC_PHYS_ADDR_INVALID);
-	else if (hdmi->ddc) {
-		struct edid *edid = drm_get_edid(&hdmi->connector, hdmi->ddc);
-		if (edid) {
-			if (hdmi->cec_notifier)
-				cec_notifier_set_phys_addr_from_edid(
-				hdmi->cec_notifier, edid);
-				kfree(edid);
-			}
-	}
+
 	if (hdmi->bridge.dev) {
 #if IS_REACHABLE(CONFIG_DRM_DW_HDMI_CEC)
 		if (change && hdmi->cec_adap && hdmi->cec_adap->devnode.registered)
@@ -4291,10 +4277,13 @@ void dw_hdmi_qp_resume(struct device *dev, struct dw_hdmi_qp *hdmi)
 
 	mutex_unlock(&hdmi->mutex);
 
+	if (hdmi->phy.ops->setup_hpd)
+		hdmi->phy.ops->setup_hpd(hdmi, hdmi->phy.data);
+
 	result = hdmi->phy.ops->read_hpd(hdmi, hdmi->phy.data);
 	if (result == connector_status_connected) {
 		mutex_lock(&hdmi->connector.dev->mode_config.mutex);
-		dw_hdmi_connector_get_modes(&hdmi->connector);
+		drm_helper_probe_single_connector_modes(&hdmi->connector, 9000, 9000);
 		mutex_unlock(&hdmi->connector.dev->mode_config.mutex);
 	}
 }

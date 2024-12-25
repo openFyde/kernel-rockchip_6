@@ -1084,9 +1084,11 @@ int rockchip_pwm_set_counter(struct pwm_device *pwm,
 		return -EBUSY;
 	}
 
-	ret = clk_enable(pc->pclk);
-	if (ret)
-		return ret;
+	if (enable) {
+		ret = clk_enable(pc->pclk);
+		if (ret)
+			return ret;
+	}
 
 	ret = pinctrl_select_state(pc->pinctrl, pc->active_state);
 	if (ret) {
@@ -1101,8 +1103,14 @@ int rockchip_pwm_set_counter(struct pwm_device *pwm,
 		goto err_disable_pclk;
 	}
 
+	if (!enable)
+		clk_disable(pc->pclk);
+
+	return ret;
+
 err_disable_pclk:
-	clk_disable(pc->pclk);
+	if (enable)
+		clk_disable(pc->pclk);
 
 	return ret;
 }
@@ -1146,19 +1154,12 @@ int rockchip_pwm_get_counter_result(struct pwm_device *pwm,
 		return -EINVAL;
 	}
 
-	ret = clk_enable(pc->pclk);
-	if (ret)
-		return ret;
-
 	ret = pc->data->funcs.get_counter_result(chip, pwm, counter_res, is_clear);
 	if (ret) {
 		dev_err(chip->dev, "Failed to get counter result for PWM%d\n",
 			pc->channel_id);
-		goto err_disable_pclk;
+		return ret;
 	}
-
-err_disable_pclk:
-	clk_disable(pc->pclk);
 
 	return ret;
 }
@@ -1224,7 +1225,7 @@ static int rockchip_pwm_get_freq_meter_result_v4(struct pwm_chip *chip, struct p
 	if (pc->freq_res_valid) {
 		freq_res = readl_relaxed(pc->base + FREQ_RESULT_VALUE);
 		freq_timer = readl_relaxed(pc->base + FREQ_TIMER_VALUE);
-		*freq_hz = DIV_ROUND_CLOSEST_ULL(pc->clk_rate * freq_res, freq_timer);
+		*freq_hz = DIV_ROUND_CLOSEST_ULL((u64)pc->clk_rate * freq_res, freq_timer);
 		if (!*freq_hz)
 			return -EINVAL;
 
@@ -1765,7 +1766,7 @@ static int rockchip_pwm_get_biphasic_result_v4(struct pwm_chip *chip, struct pwm
 			if (pc->biphasic_config->mode == PWM_BIPHASIC_COUNTER_MODE0_FREQ) {
 				val = *biphasic_res;
 				biphasic_timer = readl_relaxed(pc->base + BIPHASIC_TIMER_VALUE);
-				*biphasic_res = DIV_ROUND_CLOSEST_ULL(pc->clk_rate * val,
+				*biphasic_res = DIV_ROUND_CLOSEST_ULL((u64)pc->clk_rate * val,
 								      biphasic_timer);
 			}
 
@@ -1842,7 +1843,7 @@ static int rockchip_pwm_debugfs_show(struct seq_file *s, void *data)
 
 	if (pc->main_version >= 4) {
 		regs_start = (u32)pc->res->start;
-		for (i = 0; i < 0x80; i += 4) {
+		for (i = 0; i < 0x90; i += 4) {
 			seq_printf(s, "%08x:  %08x %08x %08x %08x\n", regs_start + i * 4,
 				   readl_relaxed(pc->base + (4 * i)),
 				   readl_relaxed(pc->base + (4 * (i + 1))),

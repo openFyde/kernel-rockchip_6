@@ -40,7 +40,7 @@ CONFIG_BCMDHD_DEBUG := y
 #CONFIG_BCMDHD_TIMESTAMP := y
 #CONFIG_BCMDHD_WAPI := y
 #CONFIG_BCMDHD_RANDOM_MAC := y
-#CONFIG_BCMDHD_REQUEST_FW := y
+CONFIG_BCMDHD_REQUEST_FW := y
 #CONFIG_BCMDHD_FW_SIGNATURE := y
 #CONFIG_BCMDHD_DWDS := y
 CONFIG_BCMDHD_TPUT := y
@@ -324,7 +324,7 @@ ifneq ($(CONFIG_CFG80211),)
 ifneq ($(CONFIG_BCMDHD_SDIO),)
 	DHDCFLAGS += -DRXF_DEQUEUE_ON_BUSY
 endif
-#	DHDCFLAGS += -DWL_STATIC_IF
+	DHDCFLAGS += -DWL_STATIC_IF
 endif
 endif
 
@@ -478,7 +478,6 @@ EXTRA_CFLAGS += -I$(srctree)/$(BCMDHD_ROOT)/include/ -I$(srctree)/$(BCMDHD_ROOT)
 ifeq ($(CONFIG_AP6XXX),m)
 EXTRA_LDFLAGS += --strip-debug
 endif
-EXTRA_CFLAGS += -I$(srctree)/drivers/net/wireless/rockchip_wlan/rkwifi/bcmdhd/include
 
 obj-$(CONFIG_AP6XXX) += $(MODULE_NAME).o
 $(MODULE_NAME)-objs += $(DHDOFILES)

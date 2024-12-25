@@ -1338,23 +1338,6 @@ static int hdmirx_dv_timings_cap(struct file *file, void *fh,
 	return 0;
 }
 
-static int hdmirx_g_parm(struct file *file, void *priv,
-			 struct v4l2_streamparm *parm)
-{
-	struct hdmirx_stream *stream = video_drvdata(file);
-	struct rk_hdmirx_dev *hdmirx_dev = stream->hdmirx_dev;
-	struct v4l2_fract fps;
-
-	if (parm->type != V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
-		return -EINVAL;
-
-	fps = v4l2_calc_timeperframe(&hdmirx_dev->timings);
-	parm->parm.capture.timeperframe.numerator = fps.numerator;
-	parm->parm.capture.timeperframe.denominator = fps.denominator;
-
-	return 0;
-}
-
 static int hdmirx_enum_dv_timings(struct file *file, void *_fh,
 				    struct v4l2_enum_dv_timings *timings)
 {
@@ -1561,7 +1544,9 @@ static void hdmirx_phy_config(struct rk_hdmirx_dev *hdmirx_dev)
 		dev_err(dev, "%s wait pddq ack failed!\n", __func__);
 
 	hdmirx_update_bits(hdmirx_dev, PHY_CONFIG, HDMI_DISABLE, 0);
-	wait_reg_bit_status(hdmirx_dev, PHY_STATUS, HDMI_DISABLE_ACK, 0, false, 50);
+	if (wait_reg_bit_status(hdmirx_dev, PHY_STATUS, HDMI_DISABLE_ACK, 0,
+				false, 50))
+		dev_err(dev, "%s wait hdmi disable ack failed!\n", __func__);
 
 	hdmirx_tmds_clk_ratio_config(hdmirx_dev);
 }
@@ -1706,7 +1691,7 @@ static int hdmirx_wait_lock_and_get_timing(struct rk_hdmirx_dev *hdmirx_dev)
 			hdmirx_phy_config(hdmirx_dev);
 
 		if (!tx_5v_power_present(hdmirx_dev)) {
-			//v4l2_err(v4l2_dev, "%s HDMI pull out, return!\n", __func__);
+			v4l2_err(v4l2_dev, "%s HDMI pull out, return!\n", __func__);
 			return -1;
 		}
 
@@ -1792,17 +1777,6 @@ static int hdmirx_enum_input(struct file *file, void *priv,
 	input->capabilities = V4L2_IN_CAP_DV_TIMINGS;
 
 	return 0;
-}
-
-static int hdmirx_g_input(struct file *file, void *priv, unsigned int *i)
-{
-	*i = 0;
-	return 0;
-}
-
-static int hdmirx_s_input(struct file *file, void *priv, unsigned int i)
-{
-	return i == 0 ? 0 : -EINVAL;
 }
 
 static int fcc_xysubs(u32 fcc, u32 *xsubs, u32 *ysubs)
@@ -2625,11 +2599,8 @@ static const struct v4l2_ioctl_ops hdmirx_v4l2_ioctl_ops = {
 	.vidioc_query_dv_timings = hdmirx_query_dv_timings,
 	.vidioc_dv_timings_cap = hdmirx_dv_timings_cap,
 	.vidioc_enum_input = hdmirx_enum_input,
-	.vidioc_g_input = hdmirx_g_input,
-	.vidioc_s_input = hdmirx_s_input,
 	.vidioc_g_edid = hdmirx_get_edid,
 	.vidioc_s_edid = hdmirx_set_edid,
-	.vidioc_g_parm = hdmirx_g_parm,
 
 	.vidioc_reqbufs = vb2_ioctl_reqbufs,
 	.vidioc_querybuf = vb2_ioctl_querybuf,
@@ -3237,7 +3208,7 @@ static irqreturn_t hdmirx_dma_irq_handler(int irq, void *dev_id)
 
 static void hdmirx_audio_interrupts_setup(struct rk_hdmirx_dev *hdmirx_dev, bool en)
 {
-	//dev_info(hdmirx_dev->dev, "%s: %d", __func__, en);
+	dev_info(hdmirx_dev->dev, "%s: %d", __func__, en);
 	if (en) {
 		hdmirx_update_bits(hdmirx_dev, AVPUNIT_1_INT_MASK_N,
 				   DEFRAMER_VSYNC_THR_REACHED_MASK_N,
@@ -3546,8 +3517,8 @@ static int hdmirx_audio_startup(struct device *dev, void *data)
 
 	if (tx_5v_power_present(hdmirx_dev) && hdmirx_dev->audio_present)
 		return 0;
-	dev_dbg(dev, "%s: device is no connected or audio is off\n", __func__);
-	return 0;
+	dev_err(dev, "%s: device is no connected or audio is off\n", __func__);
+	return -ENODEV;
 }
 
 static void hdmirx_audio_shutdown(struct device *dev, void *data)
